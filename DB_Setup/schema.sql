@@ -35,6 +35,7 @@ CREATE TABLE raw_orders_csv (
 /*--core tables-----------------------------------------------------*/
 CREATE TABLE customers (
     customer_id         bigserial PRIMARY KEY,
+    company_name        text,
     contact_last_name   text,
     contact_first_name  text,
     phone               text,
@@ -53,12 +54,36 @@ CREATE TABLE addresses (
     country_code        char(3),
     --match_addr           text,
     created_at          timestamptz DEFAULT now(),  --when row first inserted       
-    updated_at          timestamptz DEFAULT now()   --auto-updated by trigger
+    updated_at          timestamptz DEFAULT now(),   --auto-updated by trigger
 
     -- unique constraint to prevent duplicate addresses
     CONSTRAINT uc_cust_address UNIQUE (customer_id, st_addr, postal_code)
-);-----------------------------------------------------------------------
+);
 
+CREATE TABLE products (
+    product_code    text PRIMARY KEY,
+    product_line    text,
+    msrp            numeric(10,2)
+);
+
+CREATE TABLE orders (
+    order_no            int PRIMARY KEY,
+    customer_id         bigint REFERENCES customers(customer_id),
+    ship_addr_id        bigint REFERENCES addresses(address_id),
+    order_date          date,
+    status              text,
+    deal_size           text
+);
+
+CREATE TABLE order_lines (
+    order_no            int REFERENCES orders(order_no),            -- parent/child relationship with orders (parent)
+    line_no             smallint,
+    product_code        text REFERENCES products(product_code),
+    quantity            int,
+    price_each          numeric(10,2),
+    sales               numeric(12,2),
+    PRIMARY KEY (order_no, line_no)
+);-----------------------------------------------------------------------
 
 /*--audit tables-----------------------------------------------------*/
 CREATE TABLE customers_audit (
@@ -69,6 +94,7 @@ CREATE TABLE customers_audit (
     operation           char(1),                    --'I' insert; or 'U' update; or 'D' delete
 
     -- columns preserved
+    company_name        text,
     contact_last_name   text,
     contact_first_name  text,
     phone               text
@@ -107,7 +133,7 @@ $$ LANGUAGE plpgsql;
 -- for customers
 CREATE TRIGGER trg_cust_touch_updated
 BEFORE UPDATE ON customers
-FOR EACH ROW EXECUTE FUNCTION touch_updated_at()
+FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 -- for addresses
 CREATE TRIGGER trg_addr_touch_updated
@@ -123,6 +149,7 @@ BEGIN
         customer_id,
         operation,
         changed_by,
+        company_name,
         contact_last_name,
         contact_first_name,
         phone
@@ -134,6 +161,7 @@ BEGIN
         current_user,
 
         -- new value for insert and old value for update/delete
+        CASE WHEN TG_OP = 'INSERT' THEN NEW.company_name            ELSE OLD.company_name END,
         CASE WHEN TG_OP = 'INSERT' THEN NEW.contact_last_name       ELSE OLD.contact_last_name END,
         CASE WHEN TG_OP = 'INSERT' THEN NEW.contact_first_name      ELSE OLD.contact_first_name END,
         CASE WHEN TG_OP = 'INSERT' THEN NEW.phone                   ELSE OLD.phone END
