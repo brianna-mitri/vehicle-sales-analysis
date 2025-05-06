@@ -1,7 +1,7 @@
-/*--------------------------------------
-CREATE TABLES
---------------------------------------*/
--- landing / raw data 
+/*---------------------------------------------------------
+-------------------- CREATE TABLES ------------------------
+---------------------------------------------------------*/
+/*--landing / raw data-----------------------------------------------------*/
 CREATE TABLE raw_orders_csv (
     ordernumber         int,
     quantity_ordered    int,
@@ -29,16 +29,17 @@ CREATE TABLE raw_orders_csv (
     contact_first_name  text,
     deal_size           text,
     created_at          timestamptz DEFAULT now()
-);
+);------------------------------------------------------------------------
 
 
--- core tables
+/*--core tables-----------------------------------------------------*/
 CREATE TABLE customers (
     customer_id         bigserial PRIMARY KEY,
     contact_last_name   text,
     contact_first_name  text,
     phone               text,
-    created_at          timestamptz DEFAULT now()
+    created_at          timestamptz DEFAULT now(),
+    updated_at          timestamptz DEFAULT now()
 );
 
 CREATE TABLE addresses (
@@ -56,9 +57,23 @@ CREATE TABLE addresses (
 
     -- unique constraint to prevent duplicate addresses
     CONSTRAINT uc_cust_address UNIQUE (customer_id, st_addr, postal_code)
+);-----------------------------------------------------------------------
+
+
+/*--audit tables-----------------------------------------------------*/
+CREATE TABLE customers_audit (
+    audit_id            bigserial PRIMARY KEY,
+    customer_id         bigint REFERENCES customers(customer_id),
+    changed_at          timestamptz DEFAULT now(),
+    changed_by          varchar(100) NOT NULL,
+    operation           char(1),                    --'I' insert; or 'U' update; or 'D' delete
+
+    -- columns preserved
+    contact_last_name   text,
+    contact_first_name  text,
+    phone               text
 );
 
--- audit table
 CREATE TABLE addresses_audit (
     audit_id            bigserial PRIMARY KEY,
     address_id          bigint REFERENCES addresses(address_id),
@@ -74,12 +89,13 @@ CREATE TABLE addresses_audit (
     postal_code         text,
     country_code        char(3)
     --full_addr           text,
-);
+);------------------------------------------------------------------------
 
-/*--------------------------------------
-TRIGGERS
---------------------------------------*/
--- auto-refresh updated_at
+
+/*---------------------------------------------------------
+---------------------- TRIGGERS ---------------------------
+---------------------------------------------------------*/
+/*--auto-refresh updated_at-----------------------------------------------------*/
 CREATE OR REPLACE FUNCTION touch_updated_at()
 RETURNS trigger AS $$
 BEGIN
@@ -88,11 +104,52 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_touch_updated
-BEFORE UPDATE ON addresses
-FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+-- for customers
+CREATE TRIGGER trg_cust_touch_updated
+BEFORE UPDATE ON customers
+FOR EACH ROW EXECUTE FUNCTION touch_updated_at()
 
--- audit addresses table trigger
+-- for addresses
+CREATE TRIGGER trg_addr_touch_updated
+BEFORE UPDATE ON addresses
+FOR EACH ROW EXECUTE FUNCTION touch_updated_at();------------------------------------------------------------------------
+
+
+/*--customers: capture old values for updating/deleting and new for insert-----------------------------------------------------*/
+CREATE OR REPLACE FUNCTION audit_customers()
+RETURNS trigger AS $$
+BEGIN
+    INSERT INTO customers_audit (
+        customer_id,
+        operation,
+        changed_by,
+        contact_last_name,
+        contact_first_name,
+        phone
+    )
+    
+    VALUES (
+        COALESCE(OLD.customer_id, NEW.customer_id),
+        TG_OP,
+        current_user,
+
+        -- new value for insert and old value for update/delete
+        CASE WHEN TG_OP = 'INSERT' THEN NEW.contact_last_name       ELSE OLD.contact_last_name END,
+        CASE WHEN TG_OP = 'INSERT' THEN NEW.contact_first_name      ELSE OLD.contact_first_name END,
+        CASE WHEN TG_OP = 'INSERT' THEN NEW.phone                   ELSE OLD.phone END
+    );
+    -- return correct row depending on IUD (I/U --> return new; D --> return old)
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$ LANGUAGE plpgsql;
+
+-- fire trigger after an audit per record
+CREATE TRIGGER trg_customers_audit
+AFTER INSERT OR UPDATE OR DELETE ON customers
+FOR EACH ROW EXECUTE FUNCTION audit_customers();------------------------------------------------------------------------
+
+
+/*--addresses: capture old values for updating/deleting and new for insert-----------------------------------------------------*/
 CREATE OR REPLACE FUNCTION audit_addresses()
 RETURNS trigger AS $$
 BEGIN
@@ -120,19 +177,13 @@ BEGIN
         CASE WHEN TG_OP = 'INSERT' THEN NEW.region          ELSE OLD.region END,
         CASE WHEN TG_OP = 'INSERT' THEN NEW.postal_code     ELSE OLD.postal_code END,
         CASE WHEN TG_OP = 'INSERT' THEN NEW.country_code    ELSE OLD.country_code END  
-        -- COALESCE(OLD.st_addr, NEW.st_addr),
-        -- COALESCE(OLD.sub_addr, NEW.sub_addr),
-        -- COALESCE(OLD.city, NEW.city),
-        -- COALESCE(OLD.region, NEW.region),
-        -- COALESCE(OLD.postal_code, NEW.postal_code),
-        -- COALESCE(OLD.country_code, NEW.country_code)
     );
     -- return correct row depending on IUD (I/U --> return new; D --> return old)
     RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql; 
 
 -- fire trigger after an audit per record
 CREATE TRIGGER trg_addresses_audit
 AFTER INSERT OR UPDATE OR DELETE ON addresses
-FOR EACH ROW EXECUTE FUNCTION audit_addresses();
+FOR EACH ROW EXECUTE FUNCTION audit_addresses();------------------------------------------------------------------------
