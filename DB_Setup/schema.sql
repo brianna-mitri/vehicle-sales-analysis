@@ -3,6 +3,7 @@
 ---------------------------------------------------------*/
 /*--landing / raw data-----------------------------------------------------*/
 CREATE TABLE raw_orders_csv (
+    raw_id              bigserial PRIMARY KEY,
     ordernumber         int,
     quantity_ordered    int,
     price_each          numeric(10,2),
@@ -28,17 +29,18 @@ CREATE TABLE raw_orders_csv (
     contact_last_name   text,
     contact_first_name  text,
     deal_size           text,
-    created_at          timestamptz DEFAULT now()
+    created_at          timestamptz DEFAULT now(),
+    UNIQUE (ordernumber, order_line_number)
 );------------------------------------------------------------------------
 
 
 /*--core tables-----------------------------------------------------*/
 CREATE TABLE customers (
     customer_id         bigserial PRIMARY KEY,
-    company_name        text,
+    company_name        varchar(80),
     contact_last_name   text,
     contact_first_name  text,
-    phone               text,
+    phone               varchar(25),
     created_at          timestamptz DEFAULT now(),
     updated_at          timestamptz DEFAULT now()
 );
@@ -61,8 +63,8 @@ CREATE TABLE addresses (
 );
 
 CREATE TABLE products (
-    product_code    text PRIMARY KEY,
-    product_line    text,
+    product_code    varchar(20) PRIMARY KEY,
+    product_line    varchar(30),
     msrp            numeric(10,2)
 );
 
@@ -71,14 +73,23 @@ CREATE TABLE orders (
     customer_id         bigint REFERENCES customers(customer_id),
     ship_addr_id        bigint REFERENCES addresses(address_id),
     order_date          date,
-    status              text,
-    deal_size           text
+    status              varchar(10)
+        CONSTRAINT chk_status
+        CHECK (status IN (
+            'Shipped', 'Resolved', 'Cancelled', 
+            'On Hold', 'Disputed', 'In Process'
+        )),
+    deal_size           varchar(6)
+        CONSTRAINT chk_deal_size
+        CHECK (deal_size IN (
+            'Medium', 'Small', 'Large'
+        ))
 );
 
 CREATE TABLE order_lines (
     order_no            int REFERENCES orders(order_no),            -- parent/child relationship with orders (parent)
     line_no             smallint,
-    product_code        text REFERENCES products(product_code),
+    product_code        varchar(20) REFERENCES products(product_code),
     quantity            int,
     price_each          numeric(10,2),
     sales               numeric(12,2),
@@ -90,21 +101,21 @@ CREATE TABLE customers_audit (
     audit_id            bigserial PRIMARY KEY,
     customer_id         bigint REFERENCES customers(customer_id),
     changed_at          timestamptz DEFAULT now(),
-    changed_by          varchar(100) NOT NULL,
+    changed_by          varchar(30) NOT NULL,
     operation           char(1),                    --'I' insert; or 'U' update; or 'D' delete
 
     -- columns preserved
-    company_name        text,
+    company_name        varchar(80),
     contact_last_name   text,
     contact_first_name  text,
-    phone               text
+    phone               varchar(25)
 );
 
 CREATE TABLE addresses_audit (
     audit_id            bigserial PRIMARY KEY,
     address_id          bigint REFERENCES addresses(address_id),
     changed_at          timestamptz DEFAULT now(),
-    changed_by          varchar(100) NOT NULL,        
+    changed_by          varchar(30) NOT NULL,        
     operation           char(1),                    --'I' insert; or 'U' update; or 'D' delete
 
     -- columns preserved
