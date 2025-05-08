@@ -7,7 +7,7 @@ from psycopg2 import sql
 # Prepare variables
 # -------------------------------------
 dest_table = 'raw_orders_csv'
-data_path = '../Resources/sales_data_sample.csv'
+data_path = '../data/sales_data_sample.csv'
 
 # pull credentials from .env
 load_dotenv('../.env')

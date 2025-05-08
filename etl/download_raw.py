@@ -3,7 +3,7 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 import pathlib
 
 # setup output path
-output_path = pathlib.Path('../Resources')
+output_path = pathlib.Path('../data')
 output_path.mkdir(exist_ok=True, parents=True)
 
 # import dataset through kaggle api
