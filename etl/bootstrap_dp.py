@@ -28,7 +28,7 @@ admin_dsn = f'dbname={maintenance_db} user={super_user} password={pg_password} h
 target_db = 'order_mgmt'
 
 # read schema as text
-schema = pathlib.Path('schema.sql').read_text()
+schema = pathlib.Path('../db/01_schema.sql').read_text()
 
 # ---------------------------------------------------------
 # Build Functions
