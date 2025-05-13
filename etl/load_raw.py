@@ -6,8 +6,8 @@ from psycopg2 import sql
 # -------------------------------------
 # Prepare variables
 # -------------------------------------
-# check if first load
-first_load = True
+# database to create
+target_db = 'order_mgmt'
 
 # paths
 dest_table = 'raw_orders_csv'
@@ -17,7 +17,6 @@ iso_codes_path = '../data/iso_codes.csv'
 # pull credentials from .env
 load_dotenv('../.env')
 
-target_db = 'order_mgmt'
 target_dsn = f'''
 dbname={target_db} 
 user={os.getenv('super_user')} 
@@ -90,7 +89,12 @@ def main() -> None:
         # ---------------------------------
         # first load: load country codes
         # ---------------------------------
-        if first_load:
+        # check if table is empty
+        cur.execute("SELECT 1 FROM iso_country_codes LIMIT 1;")
+        already_loaded = cur.fetchone() is not None
+
+        # if table not filled already then load
+        if not already_loaded:
             with open(iso_codes_path, 'r', encoding='utf-8') as f:
                 cur.copy_expert(
                     '''
@@ -101,7 +105,7 @@ def main() -> None:
                 )
             print(f'☑ ISO country codes table filled')
         else:
-            print(f'☐ ISO country codes table NOT filled--> skipping...')
+            print(f'☐ ISO country codes already present--> skipping...')
         
         # commit changes and display
         conn.commit()
