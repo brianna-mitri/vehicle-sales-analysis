@@ -1,7 +1,8 @@
 # imports
-import csv, io, os, psycopg2
+import csv, io, os, psycopg2, pycountry
 from dotenv import load_dotenv
 from psycopg2 import sql
+import pandas as pd
 
 # -------------------------------------
 # Prepare variables
@@ -12,7 +13,6 @@ target_db = 'order_mgmt'
 # paths
 dest_table = 'raw_orders_csv'
 raw_path = '../data/sales_data_sample.csv'
-iso_codes_path = '../data/iso_codes.csv'
 
 # pull credentials from .env
 load_dotenv('../.env')
@@ -24,6 +24,17 @@ password={os.getenv('pg_password')}
 host={os.getenv('host')} 
 port={os.getenv('port')}
 '''
+
+# function to build in memory csv of country iso codes if needed
+def build_iso_codes_csv() -> io.StringIO:
+    # use pycountry to get dict of iso codes with country
+    iso_codes = [{'alpha3': country.alpha_3, 'name': country.name} for country in pycountry.countries]
+    
+    # save to file
+    buf = io.StringIO()
+    pd.DataFrame(iso_codes).to_csv(buf, index=False)
+    buf.seek(0)
+    return buf
 # -------------------------------------
 # Load raw data into database
 # -------------------------------------
@@ -95,14 +106,17 @@ def main() -> None:
 
         # if table not filled already then load
         if not already_loaded:
-            with open(iso_codes_path, 'r', encoding='utf-8') as f:
-                cur.copy_expert(
-                    '''
-                    COPY iso_country_codes(alpha3, name) 
-                    FROM STDIN CSV HEADER
-                    ''',
-                    f
-                )
+            # create in memory csv of iso codes
+            iso_codes_csv = build_iso_codes_csv()
+
+            # load
+            cur.copy_expert(
+                '''
+                COPY iso_country_codes(alpha3, name) 
+                FROM STDIN CSV HEADER
+                ''',
+                iso_codes_csv
+            )
             print(f'☑ ISO country codes table filled')
         else:
             print(f'☐ ISO country codes already present--> skipping...')
