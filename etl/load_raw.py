@@ -6,20 +6,25 @@ from psycopg2 import sql
 # -------------------------------------
 # Prepare variables
 # -------------------------------------
+# check if first load
+first_load = True
+
+# paths
 dest_table = 'raw_orders_csv'
-data_path = '../data/sales_data_sample.csv'
+raw_path = '../data/sales_data_sample.csv'
+iso_codes_path = '../data/iso_codes.csv'
 
 # pull credentials from .env
 load_dotenv('../.env')
 
 target_db = 'order_mgmt'
-super_user = os.getenv('super_user')  #role allowed to create db
-pg_password = os.getenv('pg_password')
-host = os.getenv('host')
-port = os.getenv('port')
-
-target_dsn = f'dbname={target_db} user={super_user} password={pg_password} host={host} port={port}'
-
+target_dsn = f'''
+dbname={target_db} 
+user={os.getenv('super_user')} 
+password={os.getenv('pg_password')} 
+host={os.getenv('host')} 
+port={os.getenv('port')}
+'''
 # -------------------------------------
 # Load raw data into database
 # -------------------------------------
@@ -40,7 +45,10 @@ def main() -> None:
         ).format(dest=sql.Identifier(dest_table)))
         print(f"☑ Staging table created")
 
-        with open(data_path, newline='', encoding='latin1') as fh:
+        # ---------------------------------
+        # load raw orders data
+        # ---------------------------------
+        with open(raw_path, newline='', encoding='latin1') as fh:
             # read each row as a dict
             reader = csv.DictReader(fh)
             # get header names
@@ -77,9 +85,28 @@ def main() -> None:
             cur.execute(insert_sql)
             new_records = cur.rowcount
 
-            # commit changes and display
-            conn.commit()
             print(f"☑ {new_records} new records loaded to {target_db}'s table: {dest_table}")
+
+        # ---------------------------------
+        # first load: load country codes
+        # ---------------------------------
+        if first_load:
+            with open(iso_codes_path, 'r', encoding='utf-8') as f:
+                cur.copy_expert(
+                    '''
+                    COPY iso_country_codes(alpha3, name) 
+                    FROM STDIN CSV HEADER
+                    ''',
+                    f
+                )
+            print(f'☑ ISO country codes table filled')
+        else:
+            print(f'☐ ISO country codes table NOT filled--> skipping...')
+        
+        # commit changes and display
+        conn.commit()
+
+
     except (psycopg2.Error, OSError, csv.Error) as e:
         if conn:
             conn.rollback()
