@@ -2,7 +2,7 @@
 -------------------- CREATE TABLES ------------------------
 ---------------------------------------------------------*/
 /*--landing / raw data-----------------------------------------------------*/
-CREATE TABLE raw_orders_csv (
+CREATE TABLE IF NOT EXISTS raw_orders_csv (
     raw_id              bigserial PRIMARY KEY,
     ordernumber         int,
     quantityordered     int,
@@ -31,21 +31,42 @@ CREATE TABLE raw_orders_csv (
     dealsize            text,
     created_at          timestamptz DEFAULT now(),
     UNIQUE (ordernumber, orderlinenumber)
+);
+
+-- control table
+CREATE TABLE IF NOT EXISTS etl_watermark (
+    target      text PRIMARY KEY,
+    last_raw_id bigint,             
+    updated_at  timestamptz DEFAULT now()
 );------------------------------------------------------------------------
+
+/*--iso country codes-----------------------------------------------------*/
+CREATE TABLE IF NOT EXISTS iso_country_codes (
+    alpha3          char(3)     PRIMARY KEY,
+    name            varchar(50) UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS iso_country_aliases (
+    alias           text PRIMARY KEY,
+    alpha3          char(3) REFERENCES iso_country_codes(alpha3)
+); -----------------------------------------------------------------------
 
 
 /*--core tables-----------------------------------------------------*/
-CREATE TABLE customers (
+CREATE TABLE IF NOT EXISTS customers (
     customer_id         bigserial PRIMARY KEY,
     company_name        varchar(80),
     contact_last_name   text,
     contact_first_name  text,
     phone               varchar(25),
     created_at          timestamptz DEFAULT now(),
-    updated_at          timestamptz DEFAULT now()
+    updated_at          timestamptz DEFAULT now(),
+
+    -- prevent duplicate companies
+    CONSTRAINT uc_company_name UNIQUE (company_name)
 );
 
-CREATE TABLE addresses (
+CREATE TABLE IF NOT EXISTS addresses (
     address_id          bigserial PRIMARY KEY,
     customer_id         bigint REFERENCES customers(customer_id),
     st_addr             text,
@@ -53,7 +74,7 @@ CREATE TABLE addresses (
     city                text,
     region              text,
     postal_code         text,
-    country_code        char(3),
+    country_code        char(3) REFERENCES iso_country_codes(alpha3),
     --match_addr           text,
     created_at          timestamptz DEFAULT now(),  --when row first inserted       
     updated_at          timestamptz DEFAULT now(),   --auto-updated by trigger
@@ -62,13 +83,13 @@ CREATE TABLE addresses (
     CONSTRAINT uc_cust_address UNIQUE (customer_id, st_addr, postal_code)
 );
 
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
     product_code    varchar(20) PRIMARY KEY,
     product_line    varchar(30),
     msrp            numeric(10,2)
 );
 
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
     order_no            int PRIMARY KEY,
     customer_id         bigint REFERENCES customers(customer_id),
     ship_addr_id        bigint REFERENCES addresses(address_id),
@@ -86,7 +107,7 @@ CREATE TABLE orders (
         ))
 );
 
-CREATE TABLE order_lines (
+CREATE TABLE IF NOT EXISTS order_lines (
     order_no            int REFERENCES orders(order_no),            -- parent/child relationship with orders (parent)
     line_no             smallint,
     product_code        varchar(20) REFERENCES products(product_code),
@@ -94,10 +115,11 @@ CREATE TABLE order_lines (
     price_each          numeric(10,2),
     sales               numeric(12,2),
     PRIMARY KEY (order_no, line_no)
-);-----------------------------------------------------------------------
+); -----------------------------------------------------------------------
+
 
 /*--audit tables-----------------------------------------------------*/
-CREATE TABLE customers_audit (
+CREATE TABLE IF NOT EXISTS customers_audit (
     audit_id            bigserial PRIMARY KEY,
     customer_id         bigint REFERENCES customers(customer_id),
     changed_at          timestamptz DEFAULT now(),
@@ -111,7 +133,7 @@ CREATE TABLE customers_audit (
     phone               varchar(25)
 );
 
-CREATE TABLE addresses_audit (
+CREATE TABLE IF NOT EXISTS addresses_audit (
     audit_id            bigserial PRIMARY KEY,
     address_id          bigint REFERENCES addresses(address_id),
     changed_at          timestamptz DEFAULT now(),
@@ -168,7 +190,12 @@ BEGIN
     
     VALUES (
         COALESCE(OLD.customer_id, NEW.customer_id),
-        TG_OP,
+        -- get one character
+        CASE TG_OP
+            WHEN  'INSERT' THEN 'I'
+            WHEN  'UPDATE' THEN 'U'
+            ELSE                'D'
+        END,
         current_user,
 
         -- new value for insert and old value for update/delete
@@ -206,7 +233,12 @@ BEGIN
 
     VALUES (
         COALESCE(OLD.address_id, NEW.address_id),
-        TG_OP,
+        -- get one character
+        CASE TG_OP
+            WHEN  'INSERT' THEN 'I'
+            WHEN  'UPDATE' THEN 'U'
+            ELSE                'D'
+        END,
         current_user,
 
         -- new value for insert and old for update/delete
