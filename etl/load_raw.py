@@ -2,7 +2,6 @@
 import csv, io, os, psycopg2, pycountry
 from dotenv import load_dotenv
 from psycopg2 import sql
-import pandas as pd
 
 # -------------------------------------
 # Prepare variables
@@ -24,17 +23,31 @@ password={os.getenv('pg_password')}
 host={os.getenv('host')} 
 port={os.getenv('port')}
 '''
+# -------------------------------------
+# ISO country tables
+# -------------------------------------
+# define common aliases (alias: country_code)
+aliases = {
+    'USA': 'USA',
+    'UK': 'GBR'
+}
 
-# function to build in memory csv of country iso codes if needed
-def build_iso_codes_csv() -> io.StringIO:
-    # use pycountry to get dict of iso codes with country
-    iso_codes = [{'alpha3': country.alpha_3, 'name': country.name} for country in pycountry.countries]
-    
-    # save to file
+# function that builds an in memory csv of aliases
+def build_buf(dict, col1='col1', col2='col2') -> io.StringIO:
     buf = io.StringIO()
-    pd.DataFrame(iso_codes).to_csv(buf, index=False)
+    writer = csv.writer(buf, lineterminator='\n', quoting=csv.QUOTE_MINIMAL)
+    
+    # header
+    writer.writerow([col1, col2])
+    
+    # rows
+    for key, val in dict.items():
+        writer.writerow([key, val])
     buf.seek(0)
+    
+    # return
     return buf
+
 # -------------------------------------
 # Load raw data into database
 # -------------------------------------
@@ -106,8 +119,10 @@ def main() -> None:
 
         # if table not filled already then load
         if not already_loaded:
+            # ------------- Load ISO country codes -------------
             # create in memory csv of iso codes
-            iso_codes_csv = build_iso_codes_csv()
+            iso_codes_dict = {country.alpha_3: country.name for country in pycountry.countries}
+            iso_codes_buf = build_buf(iso_codes_dict, col1='alpha3', col2='name')
 
             # load
             cur.copy_expert(
@@ -115,9 +130,20 @@ def main() -> None:
                 COPY iso_country_codes(alpha3, name) 
                 FROM STDIN CSV HEADER
                 ''',
-                iso_codes_csv
+                iso_codes_buf
             )
             print(f'☑ ISO country codes table filled')
+
+            # ------------- Load ISO country aliases -------------
+            alias_buf = build_buf(aliases, col1='alias', col2='alpha3')
+            cur.copy_expert(
+                '''
+                COPY iso_country_aliases(alias,alpha3)
+                FROM STDIN CSV HEADER
+                ''',
+                alias_buf
+            )
+            print(f'☑ ISO country aliases table filled')
         else:
             print(f'☐ ISO country codes already present--> skipping...')
         
