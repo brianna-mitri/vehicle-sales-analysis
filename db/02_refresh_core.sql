@@ -65,6 +65,40 @@ SELECT DISTINCT productcode, productline, msrp
 FROM delta
 ON CONFLICT DO NOTHING;
 
+-- orders
+WITH order_src AS (
+    SELECT DISTINCT
+        d.ordernumber       AS order_no,
+        c.customer_id,
+        a.address_id        AS ship_addr_id,
+        d.orderdate         AS order_date,
+        d.status,
+        d.dealsize          AS deal_size
+    FROM delta d
+    LEFT JOIN customers c ON d.customername = c.company_name
+    LEFT JOIN addresses a ON c.customer_id = a.customer_id
+                          AND d.postalcode = a.postal_code
+)
+INSERT INTO orders (
+    order_no, customer_id, ship_addr_id, order_date, status, deal_size)
+SELECT order_no, customer_id, ship_addr_id, order_date, status, deal_size
+FROM order_src
+ORDER BY order_no, order_date
+ON CONFLICT DO NOTHING;
+
+-- order_lines
+INSERT INTO order_lines (
+    order_no, line_no, product_code, quantity, price_each, sales)
+SELECT DISTINCT
+    ordernumber,
+    orderlinenumber,
+    productcode,
+    quantityordered,
+    priceeach,
+    sales
+FROM delta
+ON CONFLICT DO NOTHING;
+
 /* ------------------- advance watermark ------------------- */
 UPDATE etl_watermark
 SET last_raw_id = COALESCE((SELECT MAX(raw_id) FROM delta), last_raw_id),
