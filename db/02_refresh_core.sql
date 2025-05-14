@@ -11,14 +11,29 @@ FROM raw_orders_csv r
 JOIN etl_watermark w ON w.target = 'core_refresh'
 WHERE r.raw_id > w.last_raw_id;
 
+-- strip leading/trailing spaces from every text column
+DO $$
+DECLARE 
+    col text;
+BEGIN
+    FOR col IN
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'delta'
+            AND data_type = 'text'
+    LOOP
+        EXECUTE format('UPDATE delta SET %I = trim(%I);', col, col);
+    END LOOP;
+END$$;
+
 /* ------------------- Core tables ------------------- */
 -- customers
 INSERT INTO customers (company_name, contact_last_name, contact_first_name, phone)
 SELECT DISTINCT 
-    trim(customername), 
-    trim(contactlastname), 
-    trim(contactfirstname), 
-    trim(phone) 
+    customername, 
+    contactlastname, 
+    contactfirstname, 
+    phone 
 FROM delta
 ON CONFLICT DO NOTHING; -- do nothing about rows already loaded
 
@@ -26,16 +41,16 @@ ON CONFLICT DO NOTHING; -- do nothing about rows already loaded
 WITH address_src AS (
     SELECT DISTINCT
         c.customer_id,
-        trim(d.addressline1)  AS st_addr,
-        trim(d.addressline2)  AS sub_addr,
-        trim(d.city)          AS city,
-        trim(d.state)         AS region,
-        trim(d.postalcode)    AS postal_code,
+        d.addressline1  AS st_addr,
+        d.addressline2  AS sub_addr,
+        d.city,
+        d.state         AS region,
+        d.postalcode    AS postal_code,
         -- fall back on alias match
         COALESCE(ic.alpha3, ia.alpha3) AS country_code       
     FROM delta d
-    LEFT JOIN iso_country_codes ic ON trim(d.country) = ic.name
-    LEFT JOIN iso_country_aliases ia ON trim(d.country) = ia.alias
+    LEFT JOIN iso_country_codes ic ON d.country = ic.name
+    LEFT JOIN iso_country_aliases ia ON d.country = ia.alias
     LEFT JOIN customers c ON d.customername = c.company_name
 )
 INSERT INTO addresses (
@@ -45,20 +60,9 @@ FROM address_src
 ON CONFLICT DO NOTHING;
 
 -- products
-WITH product_src AS (
-    SELECT 
-        trim(productcode)   AS product_code,
-        trim(productline)   AS product_line,
-        msrp
-    FROM delta
-)
 INSERT INTO products (product_code, product_line, msrp)
-SELECT DISTINCT ON (product_code) 
-    product_code,
-    product_line,
-    msrp
-FROM product_src
-ORDER BY product_code
+SELECT DISTINCT productcode, productline, msrp
+FROM delta
 ON CONFLICT DO NOTHING;
 
 /* ------------------- advance watermark ------------------- */
