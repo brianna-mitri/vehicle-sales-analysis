@@ -1,5 +1,6 @@
 # imports
 import csv, io, os, psycopg2, pycountry
+from pathlib import Path
 from dotenv import load_dotenv
 from psycopg2 import sql
 
@@ -11,7 +12,8 @@ target_db = 'order_mgmt'
 
 # paths
 dest_table = 'raw_orders_csv'
-raw_path = '../data/sales_data_sample.csv'
+raw_path = Path('../data/sales_data_sample.csv')
+refresh_core_sql = Path('../db/02_refresh_core.sql')
 
 # pull credentials from .env
 load_dotenv('../.env')
@@ -159,7 +161,13 @@ def load_country_codes_tables(cur) -> None:
     )
     
     print(f'\t☑ ISO country aliases table filled')
-        
+
+# -------------------------- apply core refresh sql --------------------------
+def refresh_core_tables(cur) -> None:
+    # execute text version of sql file
+    sql_text = refresh_core_sql.read_text()
+    cur.execute(sql_text)
+
 # -------------------------- main driver --------------------------
 def main():
     print(f"Starting connection to {target_db}....")
@@ -178,10 +186,16 @@ def main():
                 print("Load 2: prepare iso country codes/aliases tables")
                 load_country_codes_tables(cur)
                 print(f"\t☑ ISO country codes/aliases tables ready")
+
+                # load core tables
+                print("Load 3: load core tables")
+                refresh_core_tables(cur)
+                print(f"\t☑ Loaded core tables with the {new_records} new records")
             
+            print(f"Finished loading data into {target_db}...")
             conn.commit()
-            print(f"☑ Commited changes to database: {target_db}")
-        print(f"☑ Database, {target_db}, connection closed")
+            print(f"\t☑ Commited changes to database")
+        print(f"\t☑ Database connection closed")
 
     except Exception as e:
         print(f"⚠ ERROR: data NOT loaded: {e}")
