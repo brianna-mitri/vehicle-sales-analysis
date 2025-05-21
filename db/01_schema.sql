@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS addresses (
     region              text,
     postal_code         text,
     country_code        char(3) REFERENCES iso_country_codes(alpha3),
-    score               numeric(3,2),
+    score               numeric(5,2),
     --match_addr           text,
     created_at          timestamptz DEFAULT now(),  --when row first inserted       
     updated_at          timestamptz DEFAULT now(),   --auto-updated by trigger
@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS addresses_audit (
     region              text,
     postal_code         text,
     country_code        char(3),
-    score               numeric(3,2)
+    score               numeric(5,2)
     --full_addr           text,
 );------------------------------------------------------------------------
 
@@ -180,6 +180,12 @@ FOR EACH ROW EXECUTE FUNCTION touch_updated_at();-------------------------------
 CREATE OR REPLACE FUNCTION audit_customers()
 RETURNS trigger AS $$
 BEGIN
+    -- ignore updates with no changes
+    IF TG_OP = 'UPDATE'
+        AND NEW IS NOT DISTINCT FROM OLD THEN
+        RETURN NEW;
+    END IF;
+
     INSERT INTO customers_audit (
         customer_id,
         operation,
@@ -191,7 +197,7 @@ BEGIN
     )
     
     VALUES (
-        COALESCE(OLD.customer_id, NEW.customer_id),
+        COALESCE(NEW.customer_id, OLD.customer_id),
         -- get one character
         CASE TG_OP
             WHEN  'INSERT' THEN 'I'
@@ -201,10 +207,10 @@ BEGIN
         current_user,
 
         -- new value for insert and old value for update/delete
-        CASE WHEN TG_OP = 'INSERT' THEN NEW.company_name            ELSE OLD.company_name END,
-        CASE WHEN TG_OP = 'INSERT' THEN NEW.contact_last_name       ELSE OLD.contact_last_name END,
-        CASE WHEN TG_OP = 'INSERT' THEN NEW.contact_first_name      ELSE OLD.contact_first_name END,
-        CASE WHEN TG_OP = 'INSERT' THEN NEW.phone                   ELSE OLD.phone END
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.company_name            ELSE NEW.company_name END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.contact_last_name       ELSE NEW.contact_last_name END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.contact_first_name      ELSE NEW.contact_first_name END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.phone                   ELSE NEW.phone END
     );
     -- return correct row depending on IUD (I/U --> return new; D --> return old)
     RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
@@ -221,6 +227,12 @@ FOR EACH ROW EXECUTE FUNCTION audit_customers();--------------------------------
 CREATE OR REPLACE FUNCTION audit_addresses()
 RETURNS trigger AS $$
 BEGIN
+    -- ignore updates with no changes
+    IF TG_OP = 'UPDATE'
+        AND NEW IS NOT DISTINCT FROM OLD THEN
+        RETURN NEW;
+    END IF;
+    
     INSERT INTO addresses_audit (
         address_id,
         operation, 
@@ -235,7 +247,7 @@ BEGIN
     )
 
     VALUES (
-        COALESCE(OLD.address_id, NEW.address_id),
+        COALESCE(NEW.address_id, OLD.address_id),
         -- get one character
         CASE TG_OP
             WHEN  'INSERT' THEN 'I'
@@ -245,12 +257,13 @@ BEGIN
         current_user,
 
         -- new value for insert and old for update/delete
-        CASE WHEN TG_OP = 'INSERT' THEN NEW.st_addr         ELSE OLD.st_addr END,
-        CASE WHEN TG_OP = 'INSERT' THEN NEW.sub_addr        ELSE OLD.sub_addr END,
-        CASE WHEN TG_OP = 'INSERT' THEN NEW.city            ELSE OLD.city END,
-        CASE WHEN TG_OP = 'INSERT' THEN NEW.region          ELSE OLD.region END,
-        CASE WHEN TG_OP = 'INSERT' THEN NEW.postal_code     ELSE OLD.postal_code END,
-        CASE WHEN TG_OP = 'INSERT' THEN NEW.country_code    ELSE OLD.country_code END  
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.st_addr         ELSE NEW.st_addr END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.sub_addr        ELSE NEW.sub_addr END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.city            ELSE NEW.city END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.region          ELSE NEW.region END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.postal_code     ELSE NEW.postal_code END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.country_code    ELSE NEW.country_code END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.score           ELSE NEW.score END
     );
     -- return correct row depending on IUD (I/U --> return new; D --> return old)
     RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
