@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS raw_orders_csv (
 -- control table
 CREATE TABLE IF NOT EXISTS etl_watermark (
     target      text PRIMARY KEY,
-    last_raw_id bigint,             
+    last_id     bigint,             
     updated_at  timestamptz DEFAULT now()
 );------------------------------------------------------------------------
 
@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS addresses (
     region              text,
     postal_code         text,
     country_code        char(3) REFERENCES iso_country_codes(alpha3),
+    score               numeric(3,2),
     --match_addr           text,
     created_at          timestamptz DEFAULT now(),  --when row first inserted       
     updated_at          timestamptz DEFAULT now(),   --auto-updated by trigger
@@ -146,7 +147,8 @@ CREATE TABLE IF NOT EXISTS addresses_audit (
     city                text,
     region              text,
     postal_code         text,
-    country_code        char(3)
+    country_code        char(3),
+    score               numeric(3,2)
     --full_addr           text,
 );------------------------------------------------------------------------
 
@@ -228,7 +230,8 @@ BEGIN
         city, 
         region, 
         postal_code, 
-        country_code
+        country_code,
+        score
     )
 
     VALUES (
