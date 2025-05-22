@@ -7,14 +7,23 @@
 # ------------------- SETUP ------------------- #
 #################################################
 # imports
-import os, math, time, requests, pandas as pd
+import os, math, time, requests, psycopg2, pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
-from psycopg2.extras import execute_values
-from bootstrap_dp import target_dsn
+#from psycopg2.extras import execute_values
 
-# set up api credentials
+# setup dsn
+target_db = 'order_mgmt'
+
 load_dotenv('../.env')
+dsn = f'''
+dbname={target_db} 
+user={os.getenv('super_user')} 
+password={os.getenv('pg_password')} 
+host={os.getenv('host')} 
+port={os.getenv('port')}
+'''
+# set up api credentials
 token = os.getenv('access_token')
 url = 'https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates'
 
@@ -68,7 +77,6 @@ def geocode(record):
     
     # drop blanks from query
     query = {field: input for field, input in query.items() if input}
-    print(query)
 
     # geocoding
     try:
@@ -80,20 +88,109 @@ def geocode(record):
         time.sleep(0.1)
         return candidate
 
-        # # update row
-        # if candidate:
-        #     attr = candidate['attributes']
-        #     record.update({ 
-        #         'st_addr':      attr['StAddr'],
-        #         'sub_addr':     attr['SubAddr'], 
-        #         'city':         attr['City'], 
-        #         'region':       attr['Region'], 
-        #         'postal_code':  attr['Postal'], 
-        #         'country_code': attr['CountryCode'],
-        #         'score':        attr['Score']
-        #     })
-
     except Exception as e:
         print(f'Geocode fail: {e}')
         return None
     #return record
+
+#################################################
+# ------------- UPDATE ADDRESSES -------------- #
+#################################################
+# connect to db
+with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+    # -------------------------- get new addresses --------------------------  
+    # get last address id 
+    cur.execute(
+        '''
+        SElECT last_id FROM etl_watermark
+        WHERE target = 'addr_geocode'
+        '''
+    )
+    last_id = cur.fetchone()[0]
+
+    cur.execute(
+        '''
+        SELECT  address_id, customer_id,
+                st_addr, sub_addr, city, region,
+                postal_code, country_code, score
+        FROM addresses
+        WHERE address_id > %s
+            OR score is NULL
+        ''', (last_id,))
+    
+    records = cur.fetchall()
+    fields = [field.name for field in cur.description]
+
+    # display
+    record_cnt = len(records)
+    if record_cnt == 1:
+        plural_or_no = 'address'
+    elif record_cnt > 1:
+        plural_or_no = 'addresses'
+    else:
+        plural_or_no = None
+
+    print(f'Geocoding {record_cnt} {plural_or_no}...') if plural_or_no else print('No addresses to geocode')
+
+    # track high watermark
+    max_seen = last_id
+
+    # -------------------------- geocode addresses --------------------------
+    for r in records:
+        address = dict(zip(fields, r))
+        max_seen = max(max_seen, address['address_id'])
+
+        cand = geocode(address)
+        
+        # skip if no match or low score
+        if not cand or cand['score'] < score_threshold:
+            continue
+
+        # update addresses that pass threshold
+        try:
+            # get new inputs (normalize empty fields)
+            attr = cand['attributes']
+
+            # update addresses
+            cur.execute(
+                '''
+                UPDATE addresses
+                    SET st_addr         = NULLIF(%s, ''),
+                        sub_addr        = NULLIF(%s, ''),
+                        city            = NULLIF(%s, ''),
+                        region          = NULLIF(%s, ''),
+                        postal_code     = NULLIF(%s, ''),
+                        country_code    = NULLIF(%s, ''),
+                        score           = NULLIF(%s, ''),   
+                    WHERE address_id    = NULLIF(%s, '')
+                        AND score IS NULL
+                        AND st_addr IS NOT NULL
+                ''', (
+                    attr['StAddr'], attr['SubAddr'], attr['City'], 
+                    attr['Region'], attr['Postal'], attr['CountryCode'],
+                    cand['score'], address['address_id']
+                )
+            )
+        except psycopg2.Error as e:
+            conn.rollback()
+            print(f'Postgres error: {e}')
+        except Exception as e:
+            print(f'Error: {e}')
+        else:
+            conn.commit()
+
+    # -------------------------- advance watermark --------------------------
+    if max_seen > last_id:
+        cur.execute(
+            '''
+            UPDATE etl_watermark
+                SET last_id = %s,
+                    updated_at = now()
+                WHERE target = 'addr_geocode'
+            ''', (max_seen,)
+        )
+        conn.commit()
+
+print ('geocode done')
+        
+
