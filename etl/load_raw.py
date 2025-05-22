@@ -67,7 +67,7 @@ def load_raw_orders(cur) -> int:
         ).format(dest=sql.Identifier(dest_table)))
     
     # copy data into staging
-    with open(raw_path, newline='', encoding='latin1') as fh:
+    with open(raw_path, newline='', encoding='utf-8') as fh:
         # read each row as a dict
         reader = csv.DictReader(fh)
         # get header names
