@@ -274,3 +274,9 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trg_addresses_audit
 AFTER INSERT OR UPDATE OR DELETE ON addresses
 FOR EACH ROW EXECUTE FUNCTION audit_addresses();------------------------------------------------------------------------
+
+/*---------------------------------------------------------
+------------------ CREATE EXTENSIONS ----------------------
+---------------------------------------------------------*/
+CREATE EXTENSION IF NOT EXISTS unaccent;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
