@@ -9,8 +9,7 @@
 # imports
 import os, math, time, requests, psycopg2, socket
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
-#from psycopg2.extras import execute_values
+
 
 # setup dsn
 target_db = 'order_mgmt'
@@ -107,33 +106,6 @@ with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
         '''
     )
     last_id = cur.fetchone()[0]
-
-    # cur.execute(
-    #     '''
-    #     SELECT  address_id, customer_id,
-    #             st_addr, sub_addr, city, region,
-    #             postal_code, country_code, score
-    #     FROM addresses
-    #     WHERE address_id > %s
-    #         OR score is NULL
-    #     ''', (last_id,))
-    
-    # records = cur.fetchall()
-    # fields = [field.name for field in cur.description]
-
-    # # display
-    # record_cnt = len(records)
-    # if record_cnt == 1:
-    #     plural_or_no = 'address'
-    # elif record_cnt > 1:
-    #     plural_or_no = 'addresses'
-    # else:
-    #     plural_or_no = None
-
-    # print(f'Geocoding {record_cnt} {plural_or_no}...') if plural_or_no else print('No addresses to geocode')
-
-    # # track high watermark
-    # max_seen = last_id
 
     # -------------------------- update swedish addresses --------------------------  
     print('Updating Swedish addresses...')
@@ -271,5 +243,3 @@ with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
         conn.commit()
 
 print ('\n☑ Geocoding done')
-        
-
