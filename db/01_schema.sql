@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS etl_watermark (
 /*--iso country codes-----------------------------------------------------*/
 CREATE TABLE IF NOT EXISTS iso_country_codes (
     alpha3          char(3)     PRIMARY KEY,
+    alpha2          char(2)     UNIQUE,
     name            varchar(50) UNIQUE
 );
 
