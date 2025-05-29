@@ -4,7 +4,8 @@ BEGIN;
 INSERT INTO etl_watermark (target, last_id)
 VALUES 
 ('core_refresh', 0),
-('addr_geocode', 0)
+('addr_geocode', 0),
+('phone_val', 0)
 ON CONFLICT (target) DO NOTHING;
 
 CREATE TEMP TABLE delta AS
