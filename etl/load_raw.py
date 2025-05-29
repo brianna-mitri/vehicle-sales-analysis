@@ -29,22 +29,25 @@ port={os.getenv('port')}
 # ISO country tables
 # -------------------------------------
 # define common aliases (alias: country_code)
-aliases = {
-    'USA': 'USA',
-    'UK': 'GBR'
-}
+aliases = [
+    ('USA', 'USA'),
+    ('UK', 'GBR')
+]
 
 # function that builds an in memory csv of aliases
-def build_buf(dict, col1='col1', col2='col2') -> io.StringIO:
+def build_buf(rows, headers) -> io.StringIO:
+    '''
+    takes rows (list of tuples) and list of headers
+    '''
     buf = io.StringIO()
     writer = csv.writer(buf, lineterminator='\n', quoting=csv.QUOTE_MINIMAL)
     
     # header
-    writer.writerow([col1, col2])
+    writer.writerow(headers)
     
     # rows
-    for key, val in dict.items():
-        writer.writerow([key, val])
+    for r in rows:
+        writer.writerow(r)
     buf.seek(0)
     
     # return
@@ -67,7 +70,7 @@ def load_raw_orders(cur) -> int:
         ).format(dest=sql.Identifier(dest_table)))
     
     # copy data into staging
-    with open(raw_path, newline='', encoding='utf-8') as fh:
+    with open(raw_path, newline='', encoding='latin-1') as fh:
         # read each row as a dict
         reader = csv.DictReader(fh)
         # get header names
@@ -120,13 +123,14 @@ def load_country_codes_tables(cur) -> None:
     # if table not filled already then load
     if not already_loaded:
         # create in memory csv of iso codes
-        iso_codes_dict = {country.alpha_3: country.name for country in pycountry.countries}
-        iso_codes_buf = build_buf(iso_codes_dict, col1='alpha3', col2='name')
+        #iso_codes_dict = {country.alpha_3: country.name for country in pycountry.countries}
+        iso_codes_rows = [(c.alpha_3, c.alpha_2, c.name) for c in pycountry.countries]
+        iso_codes_buf = build_buf(iso_codes_rows, ['alpha3', 'alpha2', 'name'])
 
         # load
         cur.copy_expert(
             '''
-            COPY iso_country_codes(alpha3, name) 
+            COPY iso_country_codes(alpha3, alpha2, name) 
             FROM STDIN CSV HEADER
             ''',
             iso_codes_buf
@@ -144,10 +148,10 @@ def load_country_codes_tables(cur) -> None:
     )
 
     # load into temp from in memory csv of aliases
-    alias_buf = build_buf(aliases, col1='alias', col2='alpha3')
+    alias_buf = build_buf(aliases, ['alias', 'alpha3'])
     cur.copy_expert(
         '''
-        COPY alias_stage(alias,alpha3)
+        COPY alias_stage(alias, alpha3)
         FROM STDIN CSV HEADER
         ''',
         alias_buf

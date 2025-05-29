@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS etl_watermark (
 /*--iso country codes-----------------------------------------------------*/
 CREATE TABLE IF NOT EXISTS iso_country_codes (
     alpha3          char(3)     PRIMARY KEY,
+    alpha2          char(2)     UNIQUE,
     name            varchar(50) UNIQUE
 );
 
@@ -59,6 +60,7 @@ CREATE TABLE IF NOT EXISTS customers (
     contact_last_name   text,
     contact_first_name  text,
     phone               varchar(25),
+    phone_valid         boolean,
     created_at          timestamptz DEFAULT now(),
     updated_at          timestamptz DEFAULT now(),
 
@@ -131,7 +133,8 @@ CREATE TABLE IF NOT EXISTS customers_audit (
     company_name        varchar(80),
     contact_last_name   text,
     contact_first_name  text,
-    phone               varchar(25)
+    phone               varchar(25),
+    phone_valid         boolean
 );
 
 CREATE TABLE IF NOT EXISTS addresses_audit (
@@ -193,7 +196,8 @@ BEGIN
         company_name,
         contact_last_name,
         contact_first_name,
-        phone
+        phone,
+        phone_valid
     )
     
     VALUES (
@@ -210,7 +214,8 @@ BEGIN
         CASE WHEN TG_OP = 'DELETE' THEN OLD.company_name            ELSE NEW.company_name END,
         CASE WHEN TG_OP = 'DELETE' THEN OLD.contact_last_name       ELSE NEW.contact_last_name END,
         CASE WHEN TG_OP = 'DELETE' THEN OLD.contact_first_name      ELSE NEW.contact_first_name END,
-        CASE WHEN TG_OP = 'DELETE' THEN OLD.phone                   ELSE NEW.phone END
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.phone                   ELSE NEW.phone END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.phone_valid             ELSE NEW.phone_valid END
     );
     -- return correct row depending on IUD (I/U --> return new; D --> return old)
     RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
