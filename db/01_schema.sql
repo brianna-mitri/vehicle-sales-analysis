@@ -120,6 +120,27 @@ CREATE TABLE IF NOT EXISTS order_lines (
     PRIMARY KEY (order_no, line_no)
 ); -----------------------------------------------------------------------
 
+/*--segmentation tables-----------------------------------------------------*/
+CREATE TABLE IF NOT EXISTS rfm_segment_def (
+    segment_id          serial PRIMARY KEY,
+    label               varchar(20) UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS customer_segments (
+    customer_id         bigint PRIMARY KEY REFERENCES customers(customer_id),
+    segment_id          int REFERENCES rfm_segment_def(segment_id),
+    recency_days        int,
+        CONSTRAINT chk_recency_days
+        CHECK (recency_days >= 0),
+    frequency           int,
+        CONSTRAINT chk_frequency
+        CHECK (frequency >= 0),
+    monetary_amt        numeric(10,2),
+        CONSTRAINT chk_monetary_amt
+        CHECK (monetary_amt >= 0),
+    calculated_on       timestamptz DEFAULT now()
+); -----------------------------------------------------------------------
+
 
 /*--audit tables-----------------------------------------------------*/
 CREATE TABLE IF NOT EXISTS customers_audit (
@@ -153,7 +174,21 @@ CREATE TABLE IF NOT EXISTS addresses_audit (
     country_code        char(3),
     score               numeric(5,2)
     --full_addr           text,
-);------------------------------------------------------------------------
+);
+
+CREATE TABLE IF NOT EXISTS customer_segments_audit (
+    audit_id            bigserial PRIMARY KEY,
+    customer_id         bigint REFERENCES customers(customer_id),
+    changed_at          timestamptz DEFAULT now(),
+    changed_by          varchar(30) NOT NULL,        
+    operation           char(1),                    --'I' insert; or 'U' update; or 'D' delete
+
+    segment_id          int,
+    recency_days        int,
+    frequency           int,
+    monetary_amt        numeric(10,2)
+    -- calculated_on       timestamptz
+); ------------------------------------------------------------------------
 
 
 /*---------------------------------------------------------
@@ -278,7 +313,55 @@ $$ LANGUAGE plpgsql;
 -- fire trigger after an audit per record
 CREATE TRIGGER trg_addresses_audit
 AFTER INSERT OR UPDATE OR DELETE ON addresses
-FOR EACH ROW EXECUTE FUNCTION audit_addresses();------------------------------------------------------------------------
+FOR EACH ROW EXECUTE FUNCTION audit_addresses();
+
+
+/*--customer_segments: capture old values for updating/deleting and new for insert-----------------------------------------------------*/
+CREATE OR REPLACE FUNCTION audit_customer_segments()
+RETURNS trigger as $$
+BEGIN
+    -- ignore updates with no changes
+    IF TG_OP = 'UPDATE'
+        AND NEW IS NOT DISTINCT FROM OLD THEN
+        RETURN NEW;
+    END IF;
+
+    INSERT INTO customer_segments_audit(
+        customer_id,        
+        operation, 
+        changed_by,
+        segment_id,
+        recency_days,
+        frequency,
+        monetary_amt
+    )
+
+    VALUES (
+        COALESCE (new.customer_id, OLD.customer_id),
+        -- get one character
+        CASE TG_OP
+            WHEN 'INSERT' THEN 'I'
+            WHEN 'UPDATE' THEN 'U'
+            ELSE               'D'
+        END,
+        current_user,
+
+        -- new value for insert and old value for update/delete
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.segment_id         ELSE NEW.segment_id END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.recency_days       ELSE NEW.recency_days END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.frequency          ELSE NEW.frequency END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.monetary_amt       ELSE NEW.monetary_amt END
+    );
+    -- return correct row depending on IUD (I/U --> return new; D --> return old)
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$ LANGUAGE plpgsql;
+
+-- fire trigger after an audit per record
+CREATE TRIGGER trg_cust_seg_audit
+AFTER INSERT OR UPDATE OR DELETE ON customer_segments
+FOR EACH ROW EXECUTE FUNCTION audit_customer_segments(); ------------------------------------------------------------------------
+
 
 /*---------------------------------------------------------
 ------------------ CREATE EXTENSIONS ----------------------
