@@ -121,6 +121,13 @@ CREATE TABLE IF NOT EXISTS order_lines (
 ); -----------------------------------------------------------------------
 
 /*--segmentation tables-----------------------------------------------------*/
+CREATE TABLE IF NOT EXISTS rfm_run (
+    run_id          bigserial PRIMARY KEY,
+    start_date      timestamptz,
+    end_date        timestamptz,
+    calculated_on   timestamptz DEFAULT now() 
+);
+
 CREATE TABLE IF NOT EXISTS rfm_segment_def (
     segment_id          serial PRIMARY KEY,
     label               varchar(20) UNIQUE
@@ -129,6 +136,7 @@ CREATE TABLE IF NOT EXISTS rfm_segment_def (
 CREATE TABLE IF NOT EXISTS customer_segments (
     customer_id         bigint PRIMARY KEY REFERENCES customers(customer_id),
     segment_id          int REFERENCES rfm_segment_def(segment_id),
+    run_id              bigint REFERENCES rfm_run,
     recency_days        int,
         CONSTRAINT chk_recency_days
         CHECK (recency_days >= 0),
@@ -137,8 +145,7 @@ CREATE TABLE IF NOT EXISTS customer_segments (
         CHECK (frequency >= 0),
     monetary_amt        numeric(10,2),
         CONSTRAINT chk_monetary_amt
-        CHECK (monetary_amt >= 0),
-    calculated_on       timestamptz DEFAULT now()
+        CHECK (monetary_amt >= 0)
 ); -----------------------------------------------------------------------
 
 
@@ -184,6 +191,7 @@ CREATE TABLE IF NOT EXISTS customer_segments_audit (
     operation           char(1),                    --'I' insert; or 'U' update; or 'D' delete
 
     segment_id          int,
+    run_id              bigint,
     recency_days        int,
     frequency           int,
     monetary_amt        numeric(10,2)
@@ -331,6 +339,7 @@ BEGIN
         operation, 
         changed_by,
         segment_id,
+        run_id,
         recency_days,
         frequency,
         monetary_amt
@@ -348,6 +357,7 @@ BEGIN
 
         -- new value for insert and old value for update/delete
         CASE WHEN TG_OP = 'DELETE' THEN OLD.segment_id         ELSE NEW.segment_id END,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.run_id             ELSE NEW.run_id END,
         CASE WHEN TG_OP = 'DELETE' THEN OLD.recency_days       ELSE NEW.recency_days END,
         CASE WHEN TG_OP = 'DELETE' THEN OLD.frequency          ELSE NEW.frequency END,
         CASE WHEN TG_OP = 'DELETE' THEN OLD.monetary_amt       ELSE NEW.monetary_amt END
