@@ -1,0 +1,93 @@
+customer_id,recency_days,frequency,monetary_amt,label
+1,183,3,118711.78,Potential Loyalist
+2,213,2,100306.58,Hibernating
+3,188,4,119028.73,Potential Loyalist
+4,441,3,142874.25,Potential Loyalist
+5,132,4,120783.07,Potential Loyalist
+6,165,3,88804.5,Potential Loyalist
+7,40,3,93170.66,Potential Loyalist
+8,167,4,197736.94,Potential Loyalist
+9,130,3,108951.13,Potential Loyalist
+10,46,3,102127.18,Potential Loyalist
+11,12,3,101894.79,Potential Loyalist
+12,97,3,111250.38,Potential Loyalist
+13,189,3,49494.67,Hibernating
+14,223,2,54723.62,Hibernating
+15,194,3,131685.3,Potential Loyalist
+16,399,2,67605.07,Hibernating
+17,186,3,137955.72,Potential Loyalist
+18,195,2,33144.93,Hibernating
+19,169,3,82751.08,Potential Loyalist
+20,269,2,79224.23,Hibernating
+21,25,4,120562.74,Potential Loyalist
+22,131,3,113961.15,Potential Loyalist
+23,270,2,74634.85,Hibernating
+24,75,3,98923.73,Potential Loyalist
+25,300,2,66560.57,Hibernating
+26,374,2,36163.62,Hibernating
+27,69,4,153996.13,Potential Loyalist
+28,378,2,79472.07,Hibernating
+29,181,3,157807.81,Potential Loyalist
+30,260,2,117713.56,Hibernating
+31,174,3,78411.86,Potential Loyalist
+32,131,3,74936.14,Potential Loyalist
+33,215,2,67506.97,Hibernating
+34,249,2,34892.99,Hibernating
+35,165,3,26479.26,Hibernating
+36,474,2,46084.64,Hibernating
+37,14,23,795328.22,Champion
+38,33,3,80438.48,Potential Loyalist
+39,75,2,85548.41,Potential Loyalist
+40,61,3,78570.34,Potential Loyalist
+41,424,2,49642.05,Hibernating
+42,193,3,88041.26,Potential Loyalist
+43,0,4,149798.63,Potential Loyalist
+44,83,4,149882.5,Potential Loyalist
+45,319,2,50213.37,Hibernating
+46,196,3,115971.34,Potential Loyalist
+47,216,2,103080.38,Hibernating
+48,68,3,52263.9,Potential Loyalist
+49,98,2,9129.35,Hibernating
+50,197,2,78240.84,Hibernating
+51,193,4,85171.59,Potential Loyalist
+52,207,2,75238.92,Hibernating
+53,197,3,120615.28,Potential Loyalist
+54,214,2,85555.99,Hibernating
+55,446,2,87489.23,Hibernating
+56,127,4,33440.1,Hibernating
+57,173,3,24179.96,Hibernating
+58,182,3,94015.73,Potential Loyalist
+59,250,2,94117.26,Hibernating
+60,364,2,36709.19,Hibernating
+61,151,3,107599.55,Potential Loyalist
+62,169,5,200995.41,Potential Loyalist
+63,16,3,74204.79,Potential Loyalist
+64,125,3,104561.96,Potential Loyalist
+65,193,4,116599.19,Potential Loyalist
+66,178,3,97203.68,Potential Loyalist
+67,103,3,136340.21,Potential Loyalist
+68,494,2,48048.46,Hibernating
+69,106,3,104370.38,Potential Loyalist
+70,481,2,36019.04,Hibernating
+71,7,3,142601.33,Potential Loyalist
+72,117,3,81577.98,Potential Loyalist
+73,243,2,57756.43,Hibernating
+74,177,3,77795.2,Potential Loyalist
+75,180,3,74476.18,Potential Loyalist
+76,462,2,50218.51,Hibernating
+77,249,2,57197.96,Hibernating
+78,207,2,100595.55,Hibernating
+79,39,2,67600.02,Potential Loyalist
+80,181,3,83682.16,Potential Loyalist
+81,24,4,115498.73,Potential Loyalist
+82,76,5,172989.68,Potential Loyalist
+83,104,3,59469.12,Potential Loyalist
+84,256,3,111640.28,Potential Loyalist
+85,164,3,57294.42,Hibernating
+86,386,2,70859.78,Hibernating
+87,218,2,64834.32,Hibernating
+88,50,3,70488.44,Potential Loyalist
+89,244,1,34993.92,Hibernating
+90,48,5,135042.94,Potential Loyalist
+91,55,16,647596.31,Champion
+92,451,2,69052.41,Hibernating

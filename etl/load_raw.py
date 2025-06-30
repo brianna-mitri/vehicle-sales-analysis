@@ -12,7 +12,7 @@ target_db = 'order_mgmt'
 
 # paths
 dest_table = 'raw_orders_csv'
-raw_path = Path('../data/sales_data_sample.csv')
+raw_path = Path('../data/raw/sales_data_sample.csv')
 refresh_core_sql = Path('../db/02_refresh_core.sql')
 
 # pull credentials from .env
