@@ -2,7 +2,7 @@
 # 1) Update/validates phone numbers
 #   - uses Google's libphonenumber library
 #   - validates and reformats numbers
-# 2) Updates/validates 
+# 2) Geocodes addresses
 #   - uses ArcGIS REST API geocoding service
 #   - updates new addresses with a score > 80
 # -------------------------------------------
