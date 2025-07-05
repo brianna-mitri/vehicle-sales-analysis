@@ -2,7 +2,7 @@ customer_id,recency_days,frequency,monetary_amt,label
 1,183,3,118711.78,Potential Loyalist
 2,213,2,100306.58,Hibernating
 3,188,4,119028.73,Potential Loyalist
-4,441,3,142874.25,Potential Loyalist
+4,441,3,142874.25,Hibernating
 5,132,4,120783.07,Potential Loyalist
 6,165,3,88804.5,Potential Loyalist
 7,40,3,93170.66,Potential Loyalist
@@ -54,7 +54,7 @@ customer_id,recency_days,frequency,monetary_amt,label
 53,197,3,120615.28,Potential Loyalist
 54,214,2,85555.99,Hibernating
 55,446,2,87489.23,Hibernating
-56,127,4,33440.1,Hibernating
+56,127,4,33440.1,Potential Loyalist
 57,173,3,24179.96,Hibernating
 58,182,3,94015.73,Potential Loyalist
 59,250,2,94117.26,Hibernating
@@ -83,7 +83,7 @@ customer_id,recency_days,frequency,monetary_amt,label
 82,76,5,172989.68,Potential Loyalist
 83,104,3,59469.12,Potential Loyalist
 84,256,3,111640.28,Potential Loyalist
-85,164,3,57294.42,Hibernating
+85,164,3,57294.42,Potential Loyalist
 86,386,2,70859.78,Hibernating
 87,218,2,64834.32,Hibernating
 88,50,3,70488.44,Potential Loyalist
