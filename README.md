@@ -35,8 +35,8 @@ Uses PostgreSQL with both SQL scripts and Psycopg2 (Python adapter) to manage a 
 - **Phone Number Validation:** formats and validates phone numbers using the [phonenumbers module](https://pypi.org/project/phonenumbers/)
 
 ### Data Management
-- **Audit Trail:** tracks all insertions, updates, and deletions with user attribution and timestamps
-- **Incremental Loading:** uses matermarks to enable efficient incremental data processing
+- **Audit Trail:** tracks insertions, updates, and deletions with user attribution and timestamps
+- **Incremental Loading:** uses watermarks to enable efficient incremental data processing
 - **Version Control:** maintains historical snapshots of customer segmentation models with analysis timeframes
 
 ## Repo Layout
